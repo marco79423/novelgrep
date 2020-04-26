@@ -36,6 +36,9 @@ class ArticleListView(APIView):
                         'error': errors.TargetExistedError.serialize(),
                     }, status=400)
 
+                content = content.replace('\r\n', '\n')
+                content = content.replace('\r', '\n')
+
                 for paragraph_text in content.split('\n\n'):
                     skip = True
                     for _, part_of_speech in jieba.posseg.cut(paragraph_text):
