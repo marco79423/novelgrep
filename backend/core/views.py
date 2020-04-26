@@ -94,6 +94,7 @@ class ParagraphListView(APIView):
         return JsonResponse({
             'data': [
                 {
+                    'id': paragraph.id,
                     'articleTitle': paragraph.article.title,
                     'content': paragraph.content,
                 } for paragraph in models.Paragraph.objects.filter(token__word=query)[offset: offset + number]
