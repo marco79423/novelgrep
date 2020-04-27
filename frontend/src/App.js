@@ -1,26 +1,127 @@
-import React from 'react';
-import logo from './logo.svg';
-import './App.css';
+import React, {Component} from 'react'
+import {Button, Container, Header, Input, List, Menu, Segment, Visibility,} from 'semantic-ui-react'
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
-    </div>
-  );
+import 'semantic-ui-less/semantic.less'
+
+const menuStyle = {
+  border: 'none',
+  borderRadius: 0,
+  boxShadow: 'none',
+  marginBottom: '1em',
+  marginTop: '4em',
+  transition: 'box-shadow 0.5s ease, padding 0.5s ease',
 }
 
-export default App;
+const fixedMenuStyle = {
+  border: '1px solid #5C5E33',
+  boxShadow: '0px 3px 5px rgba(0, 0, 0, 0.2)',
+}
+
+const paragraphContentStyle = {
+  margin: '1em',
+}
+
+const paragraphHeaderStyle = {
+  fontSize: '1.2em',
+  marginBottom: '0.8em',
+}
+
+const paragraphDescriptionStyle = {
+  color: '#625D34',
+}
+
+const paragraphDescriptionHighLightStyle = {
+  color: '#223523',
+  fontWeight: 'bold',
+}
+
+const paragraphs = [
+  {
+    "id": 1,
+    "articleTitle": "文章標題",
+    "content": "這是一篇文章"
+  },
+]
+
+const query = '文章'
+
+export default class App extends Component {
+  state = {
+    menuFixed: false,
+  }
+
+  stickTopMenu = () => this.setState({menuFixed: true})
+
+  unStickTopMenu = () => this.setState({menuFixed: false})
+
+  render() {
+    const {menuFixed} = this.state
+
+    return (
+      <div>
+        <Container text style={{marginTop: '2em'}}>
+          <Header as='h1'>小說語句搜尋引擎</Header>
+          <p>一個上傳小說文章和搜尋小說語句的平台</p>
+        </Container>
+
+        {/* Attaching the top menu is a simple operation, we only switch `fixed` prop and add another style if it has
+            gone beyond the scope of visibility
+          */}
+        <Visibility
+          onBottomPassed={this.stickTopMenu}
+          onBottomVisible={this.unStickTopMenu}
+          once={false}
+        >
+          <Menu
+            borderless
+            fixed={menuFixed ? 'top' : undefined}
+            style={menuFixed ? fixedMenuStyle : menuStyle}
+          >
+            <Container text>
+              <Menu.Item style={{flex: '2 2 auto', paddingLeft: '0.5em'}}>
+                <Input
+                  action='搜尋'
+                  placeholder='Search...'
+                />
+              </Menu.Item>
+              <Menu.Item style={{flex: '1 1 auto'}}/>
+              <Menu.Item style={{flex: '0 0 auto'}} position='right'>
+                <Button>上傳文章</Button>
+              </Menu.Item>
+            </Container>
+          </Menu>
+        </Visibility>
+
+        <Container text>
+          <List divided relaxed>
+            {
+              paragraphs.map(paragraph => (
+                <List.Item key={paragraph.id}>
+                  <List.Content style={paragraphContentStyle}>
+                    <List.Header style={paragraphHeaderStyle}>{paragraph.articleTitle}</List.Header>
+                    <List.Description style={paragraphDescriptionStyle}>{
+                      paragraph.content
+                        .split(query)
+                        .map((part, i) => (i === 0) ? (<span>{part}</span>) :
+                          <span><span style={paragraphDescriptionHighLightStyle}>{query}</span>{part}</span>)
+                    }</List.Description>
+                  </List.Content>
+                </List.Item>
+              ))
+            }
+          </List>
+        </Container>
+
+        <Segment inverted style={{backgroundColor: '#494A28', margin: '5em 0em 0em', padding: '1em 0em'}} vertical>
+          <Container textAlign='center'>
+            <List horizontal inverted divided link size='small'>
+              <List.Item>
+                2020 兩大類
+              </List.Item>
+            </List>
+          </Container>
+        </Segment>
+      </div>
+    )
+  }
+}

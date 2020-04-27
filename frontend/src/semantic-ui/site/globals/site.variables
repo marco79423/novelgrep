@@ -1,0 +1,6 @@
+/*******************************
+     User Global Variables
+*******************************/
+
+@pageBackground: #C2C4B6;
+@fontName: 'Noto Sans TC';
