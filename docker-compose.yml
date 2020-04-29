@@ -1,0 +1,30 @@
+version: '3.7'
+services:
+  database:
+    image: mysql:5.7
+    volumes:
+      - db-data:/var/lib/mysql
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: novelgrep
+      MYSQL_DATABASE: novelgrep
+      MYSQL_USER: novelgrep
+      MYSQL_PASSWORD: novelgrep
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    environment:
+      - PMA_ARBITRARY=1
+      - PMA_HOST=database
+      - PMA_USER=novelgrep
+      - PMA_PASSWORD=novelgrep
+    restart: always
+    ports:
+      - 8080:80
+  redis:
+    image: redis:5.0
+    ports:
+      - 6379:6379
+volumes:
+  db-data:

@@ -1,13 +1,9 @@
-import re
-
-import jieba.posseg
-from django.db import transaction, DatabaseError
 from django.http import JsonResponse
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from . import errors, models
+from . import errors, models, tasks
 from .form import UploadFileForm
 
 
@@ -27,51 +23,34 @@ class ArticleListView(APIView):
                 'error': errors.InvalidFormatError.serialize(),
             }, status=400)
 
-        try:
-            with transaction.atomic():
-                title = form.cleaned_data['title']
-                content = form.cleaned_data['file'].read().decode('utf-8')
+        title = form.cleaned_data['title']
+        content = form.cleaned_data['file'].read().decode('utf-8')
 
-                article, created = models.Article.objects.get_or_create(title=title)
-                if not created:
-                    return JsonResponse({
-                        'error': errors.TargetExistedError.serialize(),
-                    }, status=400)
-
-                content = content.replace('\r\n', '\n')
-                content = content.replace('\r', '\n')
-
-                for paragraph_text in re.split(r'(\n\n|[ \t]+)', content):
-                    paragraph_text = paragraph_text.strip().replace('\n', '')
-
-                    skip = True
-                    for _, part_of_speech in jieba.posseg.cut(paragraph_text):
-                        if part_of_speech not in ['x', 'eng']:
-                            skip = False
-                            break
-                    if skip:
-                        continue
-
-                    paragraph = article.paragraph_set.create(
-                        content=paragraph_text
-                    )
-
-                    for word, part_of_speech in jieba.posseg.cut(paragraph_text):
-                        if part_of_speech in ['x', 'eng']:
-                            continue
-
-                        token, _ = models.Token.objects.get_or_create(word=word, part_of_speech=part_of_speech)
-                        paragraph.token_set.add(token)
-
-                return JsonResponse({
-                    'data': {
-                        'title': title,
-                    },
-                }, status=201)
-        except DatabaseError:
+        article, created = models.Article.objects.get_or_create(title=title, content=content)
+        if not created:
             return JsonResponse({
-                'error': errors.DatabaseError.serialize(),
-            }, status=500)
+                'error': errors.TargetExistedError.serialize(),
+            }, status=400)
+
+        mode = request.GET.get('mode', '')
+        if mode == 'direct':
+            tasks.parse_article_directly(article.id)
+            return JsonResponse({
+                'data': {
+                    'id': article.id,
+                    'title': title,
+                    'process_id': None,
+                },
+            }, status=201)
+        else:
+            async_task = tasks.parse_article.delay(article.id)
+            return JsonResponse({
+                'data': {
+                    'id': article.id,
+                    'title': title,
+                    'process_id': async_task.id,
+                },
+            }, status=201)
 
 
 class ParagraphListView(APIView):
