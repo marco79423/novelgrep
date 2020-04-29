@@ -1,3 +1,5 @@
+import re
+
 import jieba.posseg
 from django.db import transaction, DatabaseError
 from django.http import JsonResponse
@@ -39,7 +41,9 @@ class ArticleListView(APIView):
                 content = content.replace('\r\n', '\n')
                 content = content.replace('\r', '\n')
 
-                for paragraph_text in content.split('\n\n'):
+                for paragraph_text in re.split(r'(\n\n|[ \t]+)', content):
+                    paragraph_text = paragraph_text.strip().replace('\n', '')
+
                     skip = True
                     for _, part_of_speech in jieba.posseg.cut(paragraph_text):
                         if part_of_speech not in ['x', 'eng']:
