@@ -1,7 +1,20 @@
-import React from 'react'
+import React, {useEffect, useState} from 'react'
 import {BrowserRouter as Router, Route, Switch, useHistory, useLocation} from 'react-router-dom'
-import {Button, Container, Header, Input, List, Menu, Segment, Visibility,} from 'semantic-ui-react'
+import {
+  Button,
+  Container,
+  Header,
+  Icon,
+  Input,
+  List,
+  Menu,
+  Modal,
+  Progress,
+  Segment,
+  Visibility,
+} from 'semantic-ui-react'
 import {useQuery} from 'react-query'
+import {useDropzone} from 'react-dropzone'
 
 import 'semantic-ui-less/semantic.less'
 
@@ -46,6 +59,91 @@ function fetchParagraphs(key, query) {
 export function useQueryParam(name) {
   const location = useLocation()
   return new URLSearchParams(location.search).get(name)
+}
+
+function UploadButton() {
+  const {acceptedFiles, getRootProps, getInputProps} = useDropzone({
+    multiple: true,
+  })
+
+  const [uploadedFiles, setUploadedFiles] = useState([])
+  const [modalOpen, setModalOpen] = React.useState(false)
+
+  const handleOpen = () => {
+    setModalOpen(true)
+    setUploadedFiles([])
+  }
+
+  const handleClose = () => setModalOpen(false)
+
+  useEffect(() => {
+    for (const acceptedFile of acceptedFiles) {
+      const formData = new FormData()
+      formData.append('title', acceptedFile.name)
+      formData.append('file', acceptedFile)
+
+      const key = Math.floor((1 + Math.random()) * 0x10000).toString(16).substring(1);
+      setUploadedFiles((uploadedFiles) => [...uploadedFiles, {
+        key: key,
+        file: acceptedFile,
+        progress: 60,
+        error: false,
+        status: '',
+      }])
+
+      fetch('http://localhost:8000/apis/articles', {
+        method: 'POST',
+        body: formData,
+      }).then(res => res.json())
+        .then(data => {
+          setUploadedFiles(uploadedFiles => uploadedFiles.map(uploadedFile => {
+            if (uploadedFile.key === key) {
+              return {
+                ...uploadedFile,
+                progress: 100,
+                error: !!data.error,
+                status: data.error ? data.error.message : '',
+              }
+            }
+            return uploadedFile
+          }))
+        })
+    }
+
+  }, [acceptedFiles])
+
+  const files = uploadedFiles.map(uploadedFile => (
+    <li key={uploadedFile.key}>
+      <Progress percent={uploadedFile.progress} error={uploadedFile.error} success={uploadedFile.progress === 100 && !uploadedFile.error}>{uploadedFile.file.path} - {uploadedFile.file.size} bytes{uploadedFile.error ? ` - ${uploadedFile.status}` : ''}</Progress>
+    </li>
+  ))
+
+  return (
+    <Modal
+      trigger={<Button onClick={handleOpen}>上傳文章</Button>}
+      open={modalOpen}
+      onClose={handleClose}
+    >
+      <Modal.Header>上傳文章</Modal.Header>
+      <Modal.Content image>
+        <Modal.Description>
+          <Segment placeholder {...getRootProps({})}>
+            <Header icon>
+              <input {...getInputProps()} />
+              <Icon name='file alternate outline' style={{marginBottom: '0.2em'}}/>
+              拖曳文章至此或點此選擇檔案
+            </Header>
+          </Segment>
+          <Header>已上傳的檔案</Header>
+          <ul>{files}</ul>
+
+        </Modal.Description>
+      </Modal.Content>
+      <Modal.Actions>
+        <Button onClick={handleClose}>關閉</Button>
+      </Modal.Actions>
+    </Modal>
+  )
 }
 
 export function Index() {
@@ -102,7 +200,7 @@ export function Index() {
             </Menu.Item>
             <Menu.Item style={{flex: '1 1 auto'}}/>
             <Menu.Item style={{flex: '0 0 auto'}} position='right'>
-              <Button>上傳文章</Button>
+              <UploadButton/>
             </Menu.Item>
           </Container>
         </Menu>
