@@ -38,7 +38,7 @@ const paragraphDescriptionHighLightStyle = {
   fontWeight: 'bold',
 }
 
-function fetchParagraphs(query) {
+function fetchParagraphs(key, query) {
   return fetch(`http://localhost:8000/apis/paragraphs?query=${query}`)
     .then(res => res.json())
 }
@@ -60,7 +60,7 @@ export function Index() {
   const stickTopMenu = () => setMenuFixed(true)
   const unStickTopMenu = () => setMenuFixed(false)
 
-  const {status, data, error} = useQuery(query, fetchParagraphs)
+  const {status, data, error} = useQuery(['paragraphs-query', query], fetchParagraphs)
 
   if (status === 'loading') {
     return <span>Loading...</span>
