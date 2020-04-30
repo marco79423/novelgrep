@@ -1,5 +1,6 @@
 import re
 
+import celery
 import jieba.posseg
 from celery import shared_task
 from django.db import transaction
@@ -12,8 +13,8 @@ def parse_article(article_id: int):
     # 將文章拆成段落
     paragraph_ids = split_article_to_paragraphs_and_save(article_id=article_id)
     # 將段落拆成詞
-    for paragraph_id in paragraph_ids:
-        split_paragraph_to_tokens_and_save(paragraph_id=paragraph_id)
+    task = celery.group(split_paragraph_to_tokens_and_save.s(paragraph_id=paragraph_id) for paragraph_id in paragraph_ids)
+    task.apply_async()
 
 
 def parse_article_directly(article_id: int):
