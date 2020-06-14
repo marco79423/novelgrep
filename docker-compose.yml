@@ -1,30 +1,79 @@
 version: '3.7'
 services:
-  database:
+  database-1:
     image: mysql:5.7
-    volumes:
-      - db-data:/var/lib/mysql
     restart: always
-    ports:
-      - 3306:3306
     environment:
       MYSQL_ROOT_PASSWORD: novelgrep
       MYSQL_DATABASE: novelgrep
       MYSQL_USER: novelgrep
       MYSQL_PASSWORD: novelgrep
+    ports:
+      - 3306:3306
+    volumes:
+      - db-data-1:/var/lib/mysql
+  elasticsearch-1:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
+    environment:
+      - node.name=elasticsearch-1
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=elasticsearch-2
+      - cluster.initial_master_nodes=elasticsearch-1,elasticsearch-2
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data-1:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+    networks:
+      - esnet
+  elasticsearch-2:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.7.0
+    environment:
+      - node.name=elasticsearch-2
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=elasticsearch-1
+      - cluster.initial_master_nodes=elasticsearch-1,elasticsearch-2
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es-data-2:/usr/share/elasticsearch/data
+    networks:
+      - esnet
   phpmyadmin:
     image: phpmyadmin/phpmyadmin
     environment:
       - PMA_ARBITRARY=1
-      - PMA_HOST=database
+      - PMA_HOST=database-1
       - PMA_USER=novelgrep
       - PMA_PASSWORD=novelgrep
     restart: always
     ports:
       - 8080:80
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.7.0
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch-1:9200
+    ports:
+      - 5601:5601
+    networks:
+      - esnet
   redis:
     image: redis:5.0
     ports:
       - 6379:6379
 volumes:
-  db-data:
+  db-data-1:
+  es-data-1:
+  es-data-2:
+networks:
+  esnet:
+    driver: bridge

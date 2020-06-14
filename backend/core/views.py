@@ -3,7 +3,7 @@ from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
 
-from . import errors, models, tasks
+from . import errors, models, tasks, elasticsearch
 from .form import UploadFileForm
 
 
@@ -74,12 +74,30 @@ class ParagraphListView(APIView):
                 'error': errors.InvalidFormatError.serialize(),
             }, status=400)
 
+        res = elasticsearch.es_client.search(
+            index='paragraphs',
+            body={
+                'from': offset,
+                'size': number,
+                'query': {
+                    'match': {
+                        'content': query,
+                    }
+                },
+                'highlight': {
+                    'fields': {
+                        'content': {}
+                    }
+                }
+            }
+        )
+
         return JsonResponse({
             'data': [
                 {
-                    'id': paragraph.id,
-                    'articleTitle': paragraph.article.title,
-                    'content': paragraph.content,
-                } for paragraph in models.Paragraph.objects.filter(token__word=query)[offset: offset + number]
+                    'id': hit['_source']['id'],
+                    'articleTitle': hit['_source']['articleTitle'],
+                    'content': hit['_source']['content'],
+                } for hit in res['hits']['hits']
             ]
         })

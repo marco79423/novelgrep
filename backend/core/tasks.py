@@ -1,28 +1,27 @@
 import re
 
-import celery
 import jieba.posseg
 from celery import shared_task
 from django.db import transaction
 
-from . import models
+from . import models, elasticsearch
 
 
 @shared_task
 def parse_article(article_id: int):
-    # 將文章拆成段落
-    paragraph_ids = split_article_to_paragraphs_and_save(article_id=article_id)
-    # 將段落拆成詞
-    task = celery.group(split_paragraph_to_tokens_and_save.s(paragraph_id=paragraph_id) for paragraph_id in paragraph_ids)
-    task.apply_async()
+    task = (
+        # 將文章拆成段落並存進資料庫
+            split_article_to_paragraphs_and_save.s(article_id=article_id) |
+            # 將段落丟進 ES 以供查詢
+            save_paragraphs_to_es.s()
+    )()
 
 
 def parse_article_directly(article_id: int):
-    # 將文章拆成段落
+    # 將文章拆成段落並存進資料庫
     paragraph_ids = split_article_to_paragraphs_and_save(article_id=article_id)
-    # 將段落拆成詞
-    for paragraph_id in paragraph_ids:
-        split_paragraph_to_tokens_and_save(paragraph_id=paragraph_id)
+    # 將段落丟進 ES 以供查詢
+    save_paragraphs_to_es(paragraph_ids)
 
 
 @shared_task
@@ -56,13 +55,14 @@ def split_article_to_paragraphs_and_save(article_id: int):
 
 
 @shared_task
-def split_paragraph_to_tokens_and_save(paragraph_id: int):
-    paragraph = models.Paragraph.objects.get(id=paragraph_id)
-
-    with transaction.atomic():
-        for word, part_of_speech in jieba.posseg.cut(paragraph.content):
-            if part_of_speech in ['x', 'eng']:
-                continue
-
-            token, _ = models.Token.objects.get_or_create(word=word, part_of_speech=part_of_speech)
-            paragraph.token_set.add(token)
+def save_paragraphs_to_es(paragraph_ids: [int]):
+    for paragraph in models.Paragraph.objects.filter(id__in=paragraph_ids):
+        elasticsearch.es_client.create(
+            index='paragraphs',
+            id=paragraph.id,
+            body={
+                'id': paragraph.id,
+                'articleTitle': paragraph.article.title,
+                'content': paragraph.content,
+            }
+        )
